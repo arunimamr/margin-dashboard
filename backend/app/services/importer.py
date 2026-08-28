@@ -25,6 +25,7 @@ PROJECT_COLUMN_MAP = {
     "sales month": "sales_month", "category": "category", "status": "status",
 }
 MONTHS = {month.lower(): number for number, month in enumerate(month_name) if month}
+DEFAULT_BILLABLE_CATEGORIES = {"Projects", "Enhancements", "Hosting"}
 
 
 def normalize_column_name(value: object) -> str:
@@ -219,7 +220,7 @@ def import_dataset(timesheet_path: str | Path, salary_path: str | Path, project_
         for _, month in salary_columns:
             setting_months.add((year, month))
         for name in category_names:
-            db.add(Category(dataset=dataset, name=name, is_billable=not name.lower().startswith("fc -")))
+            db.add(Category(dataset=dataset, name=name, is_billable=name in DEFAULT_BILLABLE_CATEGORIES))
         for setting_year, setting_month in sorted(setting_months):
             db.add(MonthlySetting(dataset=dataset, year=setting_year, month=setting_month, overhead=Decimal("0")))
         db.commit()

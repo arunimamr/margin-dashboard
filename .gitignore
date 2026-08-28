@@ -10,9 +10,10 @@ htmlcov/
 venv/
 env/
 
-# Logs
+# Logs and test outputs
 *.log
 logs/
+test_results.txt
 
 # Local database/runtime files
 *.db

@@ -138,7 +138,8 @@ def import_dataset(timesheet_path: str | Path, salary_path: str | Path, project_
     try:
         if db.query(Dataset).filter(Dataset.name == dataset_name).first():
             raise ImportValidationError(f"Dataset '{dataset_name}' already exists")
-        dataset = Dataset(name=dataset_name, timesheet_filename=Path(timesheet_path).name, salary_filename=Path(salary_path).name, project_filename=Path(project_path).name)
+        db.query(Dataset).update({Dataset.is_active: False})
+        dataset = Dataset(name=dataset_name, timesheet_filename=Path(timesheet_path).name, salary_filename=Path(salary_path).name, project_filename=Path(project_path).name, is_active=True)
         db.add(dataset)
         db.flush()
         employee_values: dict[str, dict[str, str | None]] = {}

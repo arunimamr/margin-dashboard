@@ -78,7 +78,11 @@ def _employee_no(value: object) -> str | None:
     text = _text(value)
     if text is None:
         return None
-    return text[:-2] if text.endswith(".0") else text
+    if text.endswith(".0"):
+        text = text[:-2]
+    if re.fullmatch(r"\d+", text) and len(text) < 5:
+        return text.zfill(5)
+    return text
 
 
 def _decimal(value: object) -> Decimal | None:

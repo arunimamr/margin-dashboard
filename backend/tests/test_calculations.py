@@ -9,6 +9,7 @@ from backend.app.services.calculations import (
 	calculate_direct_rate,
 	calculate_employee_profitability,
 	calculate_employee_revenue_share,
+	calculate_company_summary,
 	calculate_indirect_rate_value,
 	calculate_non_billable_cost_value,
 	calculate_project_employee_cost_value,
@@ -49,3 +50,18 @@ def test_real_sample_zero_overhead_reconciles(tmp_path):
 		reconciliation = reconcile_company_cost(session, result["dataset_id"])
 		assert reconciliation["passed"] is True
 		assert reconciliation["difference"] == Decimal("0.00")
+
+
+def test_monthly_company_revenue_uses_project_sales_month(tmp_path):
+	root = Path(__file__).resolve().parents[2]
+	engine = create_engine(f"sqlite:///{(tmp_path / 'calculation.db').as_posix()}")
+	init_db(engine)
+	with Session(engine) as session:
+		result = import_dataset(root / "sample-data/timesheet-2025.xlsx", root / "sample-data/salaries-2025.xlsx", root / "sample-data/project-prices-2025.xlsx", "2025 Sample", session=session)
+		full_year = calculate_company_summary(session, result["dataset_id"], 2025)
+		january = calculate_company_summary(session, result["dataset_id"], 2025, 1)
+		june = calculate_company_summary(session, result["dataset_id"], 2025, 6)
+
+		assert full_year.total_revenue == Decimal("5012000")
+		assert january.total_revenue == Decimal("560000")
+		assert june.total_revenue == Decimal("980000")

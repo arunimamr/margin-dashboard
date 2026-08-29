@@ -1,6 +1,7 @@
 from collections import defaultdict
 from dataclasses import dataclass
 from decimal import Decimal, ROUND_HALF_UP
+import re
 from typing import Iterable
 
 from sqlalchemy.orm import Session
@@ -11,6 +12,32 @@ from backend.app.models import Category, Employee, MonthlySalary, MonthlySetting
 ZERO = Decimal("0")
 HUNDRED = Decimal("100")
 MONEY_QUANTUM = Decimal("0.01")
+MONTH_LOOKUP = {
+	"jan": 1,
+	"january": 1,
+	"feb": 2,
+	"february": 2,
+	"mar": 3,
+	"march": 3,
+	"apr": 4,
+	"april": 4,
+	"may": 5,
+	"jun": 6,
+	"june": 6,
+	"jul": 7,
+	"july": 7,
+	"aug": 8,
+	"august": 8,
+	"sep": 9,
+	"sept": 9,
+	"september": 9,
+	"oct": 10,
+	"october": 10,
+	"nov": 11,
+	"november": 11,
+	"dec": 12,
+	"december": 12,
+}
 
 
 def _decimal(value: object | None) -> Decimal:
@@ -35,6 +62,32 @@ def _billable_categories(session: Session, dataset_id: int) -> set[str]:
 
 def _entries(session: Session, dataset_id: int, year: int | None = None, month: int | None = None) -> list[TimesheetEntry]:
 	return _period_filter(session.query(TimesheetEntry).filter(TimesheetEntry.dataset_id == dataset_id), TimesheetEntry, year, month).all()
+
+
+def _sales_period(value: str | None) -> tuple[int | None, int | None]:
+	if not value:
+		return (None, None)
+	normalized = value.strip().lower().replace("'", " ")
+	parts = re.findall(r"[a-z]+|\d+", normalized)
+	sale_month = next((MONTH_LOOKUP[part] for part in parts if part in MONTH_LOOKUP), None)
+	year_numbers = [int(part) for part in parts if part.isdigit()]
+	sale_year = None
+	if year_numbers:
+		sale_year = year_numbers[-1]
+		if sale_year < 100:
+			sale_year += 2000
+	return (sale_year, sale_month)
+
+
+def _project_revenue_matches_period(project: Project, year: int | None, month: int | None) -> bool:
+	if month is None:
+		return True
+	sale_year, sale_month = _sales_period(project.sales_month)
+	if sale_month is None:
+		return False
+	if sale_month != month:
+		return False
+	return year is None or sale_year is None or sale_year == year
 
 
 @dataclass
@@ -69,6 +122,7 @@ class EmployeeProjectProfitability:
 	employee_name: str
 	ref_code: str
 	project_hours: Decimal
+	direct_rate: Decimal
 	revenue_share: Decimal | None
 	employee_cost: Decimal
 	profitability: Decimal | None
@@ -222,7 +276,7 @@ def calculate_project_employee_cost(session: Session, dataset_id: int, year: int
 		revenue_share = None if project.project_price is None else _decimal(project.project_price) * hours / project_hours[project_id]
 		cost = calculate_project_employee_cost_value(hours, direct_rate, indirect_rates[(entry_year, entry_month)])
 		profitability = None if revenue_share in (None, ZERO) else (revenue_share - cost) / revenue_share * HUNDRED
-		result.append(EmployeeProjectProfitability(employee_no, employee_name, project.ref_code, hours, revenue_share, cost, profitability))
+		result.append(EmployeeProjectProfitability(employee_no, employee_name, project.ref_code, hours, direct_rate, revenue_share, cost, profitability))
 	return result
 
 
@@ -264,14 +318,21 @@ def calculate_category_summary(session: Session, dataset_id: int, year: int | No
 
 
 def calculate_company_summary(session: Session, dataset_id: int, year: int | None = None, month: int | None = None) -> CompanySummary:
-	projects = calculate_project_summary(session, dataset_id, year, month)
+	all_projects = session.query(Project).filter(Project.dataset_id == dataset_id).all()
 	rates = calculate_employee_monthly_rates(session, dataset_id, year, month)
 	total_salary = sum((row.salary for row in rates), ZERO)
 	overhead = sum((_decimal(row.overhead) for row in _period_filter(session.query(MonthlySetting).filter(MonthlySetting.dataset_id == dataset_id), MonthlySetting, year, month).all()), ZERO)
 	direct_logged_cost = sum((row.direct_rate * row.total_hours for row in rates), ZERO)
 	zero_hour_salary = sum((row.salary for row in rates if row.total_hours == ZERO), ZERO)
 	total_cost = direct_logged_cost + zero_hour_salary + overhead
-	revenue = sum((_decimal(project.project_price) for project in projects if project.project_price is not None), ZERO)
+	revenue = sum(
+		(
+			_decimal(project.project_price)
+			for project in all_projects
+			if project.project_price is not None and _project_revenue_matches_period(project, year, month)
+		),
+		ZERO,
+	)
 	profit = revenue - total_cost
 	return CompanySummary(calculate_total_hours(session, dataset_id, year, month), calculate_billable_hours(session, dataset_id, year, month), calculate_non_billable_hours(session, dataset_id, year, month), total_salary, revenue, total_cost, profit, None if revenue == ZERO else profit / revenue * HUNDRED, overhead, calculate_indirect_pool(session, dataset_id, year, month), total_cost, ZERO, calculate_productivity(session, dataset_id, year, month))
 

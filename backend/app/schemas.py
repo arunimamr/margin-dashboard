@@ -82,6 +82,22 @@ class DashboardResponse(BaseModel):
 		return float(value) if value is not None else 0.0
 
 
+class DashboardTrendItem(BaseModel):
+	year: int
+	month: int
+	revenue: Decimal
+	cost: Decimal
+	profit: Decimal
+	
+	@field_serializer('revenue', 'cost', 'profit')
+	def serialize_decimal(self, value: Decimal) -> float:
+		return float(value) if value is not None else 0.0
+
+
+class DashboardTrendResponse(BaseModel):
+	items: list[DashboardTrendItem]
+
+
 # Projects
 class ProjectSummaryItem(BaseModel):
 	ref_code: str
@@ -141,22 +157,102 @@ class ProjectDetailResponse(BaseModel):
 class EmployeeProductivity(BaseModel):
 	employee_no: str
 	employee_name: str
+	department: Optional[str] = None
 	total_hours: Decimal
 	billable_hours: Decimal
 	non_billable_hours: Decimal
+	cost: Decimal
 	productivity: Decimal
 	
-	@field_serializer('total_hours', 'billable_hours', 'non_billable_hours', 'productivity')
+	@field_serializer('total_hours', 'billable_hours', 'non_billable_hours', 'cost', 'productivity')
+	def serialize_decimal(self, value: Decimal) -> float:
+		return float(value) if value is not None else 0.0
+
+
+class DepartmentEmployeeProductivity(BaseModel):
+	employee_no: str
+	employee_name: str
+	total_hours: Decimal
+	billable_hours: Decimal
+	non_billable_hours: Decimal
+	cost: Decimal
+	productivity: Decimal
+	
+	@field_serializer('total_hours', 'billable_hours', 'non_billable_hours', 'cost', 'productivity')
+	def serialize_decimal(self, value: Decimal) -> float:
+		return float(value) if value is not None else 0.0
+
+
+class DepartmentProductivity(BaseModel):
+	name: str
+	people: int
+	total_hours: Decimal
+	billable_hours: Decimal
+	non_billable_hours: Decimal
+	cost: Decimal
+	productivity: Decimal
+	employees: list[DepartmentEmployeeProductivity]
+	
+	@field_serializer('total_hours', 'billable_hours', 'non_billable_hours', 'cost', 'productivity')
 	def serialize_decimal(self, value: Decimal) -> float:
 		return float(value) if value is not None else 0.0
 
 
 class ProductivityResponse(BaseModel):
 	items: list[EmployeeProductivity]
+	departments: list[DepartmentProductivity] = []
 	company_productivity: Decimal
 	
 	@field_serializer('company_productivity')
 	def serialize_productivity(self, value: Decimal) -> float:
+		return float(value) if value is not None else 0.0
+
+
+class DepartmentAnalyticsItem(BaseModel):
+	department: str
+	employee_count: int
+	total_salary: Decimal
+	average_salary: Decimal
+	revenue: Decimal
+	profit: Decimal
+	margin: Optional[Decimal] = None
+	total_hours: Decimal
+	
+	@field_serializer('total_salary', 'average_salary', 'revenue', 'profit', 'margin', 'total_hours')
+	def serialize_decimal(self, value: Decimal) -> Optional[float]:
+		return float(value) if value is not None else None
+
+
+class SalaryRangeItem(BaseModel):
+	range: str
+	count: int
+
+
+class DepartmentAnalyticsResponse(BaseModel):
+	departments: list[DepartmentAnalyticsItem]
+	salary_ranges: list[SalaryRangeItem]
+
+
+class EmployeeMonthlySalaryItem(BaseModel):
+	year: int
+	month: int
+	salary: Decimal
+	
+	@field_serializer('salary')
+	def serialize_decimal(self, value: Decimal) -> float:
+		return float(value) if value is not None else 0.0
+
+
+class EmployeeDetailResponse(BaseModel):
+	employee_no: str
+	employee_name: str
+	department: Optional[str] = None
+	designation: Optional[str] = None
+	total_working_hours: Decimal
+	monthly_salaries: list[EmployeeMonthlySalaryItem]
+	
+	@field_serializer('total_working_hours')
+	def serialize_decimal(self, value: Decimal) -> float:
 		return float(value) if value is not None else 0.0
 
 
@@ -174,6 +270,38 @@ class CategorySummaryItem(BaseModel):
 
 class CategoriesListResponse(BaseModel):
 	items: list[CategorySummaryItem]
+
+
+class CategoryMatrixColumn(BaseModel):
+	category: str
+	billable: bool
+	hours: Decimal
+	percentage: Decimal
+	
+	@field_serializer('hours', 'percentage')
+	def serialize_decimal(self, value: Decimal) -> float:
+		return float(value) if value is not None else 0.0
+
+
+class CategoryMatrixRow(BaseModel):
+	employee_no: str
+	employee_name: str
+	department: Optional[str] = None
+	total_hours: Decimal
+	categories: dict[str, Decimal]
+	
+	@field_serializer('total_hours')
+	def serialize_total_hours(self, value: Decimal) -> float:
+		return float(value) if value is not None else 0.0
+	
+	@field_serializer('categories')
+	def serialize_categories(self, value: dict[str, Decimal]) -> dict[str, float]:
+		return {key: float(amount) for key, amount in value.items()}
+
+
+class CategoryMatrixResponse(BaseModel):
+	columns: list[CategoryMatrixColumn]
+	rows: list[CategoryMatrixRow]
 
 
 # Settings

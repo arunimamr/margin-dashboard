@@ -46,8 +46,9 @@ def test_import_normalizes_salary_months_and_deduplicates_employees(tmp_path):
     engine = database(tmp_path)
     result = import_dataset(*paths(), "Sample", session=Session(engine))
     with Session(engine) as session:
-        assert result["employees_imported"] == 14
-        assert session.query(Employee).filter(Employee.dataset_id == result["dataset_id"]).count() == 14
+        assert result["employees_imported"] == 12
+        assert session.query(Employee).filter(Employee.dataset_id == result["dataset_id"]).count() == 12
+        assert session.query(Employee).filter(Employee.dataset_id == result["dataset_id"], Employee.employee_no == "00102").one().department == "Management"
         assert session.query(MonthlySalary).filter(MonthlySalary.dataset_id == result["dataset_id"]).count() == 144
         assert session.query(MonthlySalary.month).filter(MonthlySalary.dataset_id == result["dataset_id"], MonthlySalary.month == 1).count() == 12
 
@@ -60,7 +61,7 @@ def test_missing_project_price_keeps_timesheet_row_without_project(tmp_path):
         assert len(entries) == 562
         assert any(entry.project_id is None for entry in entries)
         assert any("has no project" in warning for warning in result["warnings"])
-        assert any("has no salary" in warning for warning in result["warnings"])
+        assert not any("has no salary" in warning for warning in result["warnings"])
 
 
 def test_dataset_isolation_and_duplicate_name_rejection(tmp_path):

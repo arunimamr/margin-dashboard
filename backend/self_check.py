@@ -23,7 +23,7 @@ def main() -> None:
 		reconciliation = reconcile_company_cost(session, dataset.id)
 		project_reconciliation = reconcile_project_costs(session, dataset.id)
 		print("========================================")
-		print(f"{dataset.name.upper()} MARGIN DASHBOARD SELF CHECK")
+		print(f"{dataset.name.upper()} PROJECTS DASHBOARD SELF CHECK")
 		print("========================================")
 		print("DATA")
 		print("----------------------------------------")

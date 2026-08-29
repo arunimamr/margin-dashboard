@@ -84,7 +84,7 @@ def project_detail(
 			employee_no=row.employee_no,
 			employee_name=row.employee_name,
 			hours=row.project_hours,
-			direct_rate=None,
+			direct_rate=row.direct_rate,
 			indirect_rate=indirect_rate,
 			cost=row.employee_cost,
 			revenue_share=row.revenue_share,
